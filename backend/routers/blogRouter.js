@@ -1,33 +1,50 @@
 const express = require("express");
-const { Blog } = require("../models/index");
-const { getById } = require("../middlewares/blogMiddleware");
+const { Blog, User } = require("../models/index");
+const { Op } = require("sequelize");
+const { getById, validate } = require("../middlewares/blogMiddleware");
 const router = express.Router();
-router.get("/", async (req, res, next) => {
+router.get("/", validate, async (req, res, next) => {
   try {
-    const blogs = await Blog.findAll();
+    const where = {};
+    if (req.query.search) {
+      where[Op.or] = [
+        { title: { [Op.substring]: req.query.search.toLowerCase() } },
+        { author: { [Op.substring]: req.query.search.toLowerCase() } },
+      ];
+    }
+    const blogs = await Blog.findAll({
+      attributes: { exclude: ["UserId"] },
+      include: { model: User, attributes: { exclude: ["id"] } },
+      where,
+      order: [["likes", "desc"]],
+    });
     res.send(JSON.stringify(blogs, null, 2));
   } catch (error) {
     next("internal server errors");
   }
 });
 
-router.post("/", async (req, res, next) => {
+router.post("/", validate, async (req, res, next) => {
   const { author, title, url } = req.body;
   if (!author || !title || !url) {
     next("missing params");
     return;
   }
   try {
-    await Blog.create({ author, title, url });
+    await Blog.create({ author, title, url, UserId: req.userId });
     res.send("created successfully");
   } catch (error) {
     next("something went wrong!");
   }
 });
 
-router.delete("/:id", getById, async (req, res, next) => {
+router.delete("/:id", [validate, getById], async (req, res, next) => {
   try {
+    console.log(req.blog.UserId, "-", req.userId);
     if (req.blog) {
+      if (req.blog.UserId != req.userId) {
+        return next("unauthorized");
+      }
       await req.blog.destroy();
       return res.send(`deleted !`);
     } else throw "";
@@ -36,7 +53,7 @@ router.delete("/:id", getById, async (req, res, next) => {
   }
 });
 
-router.put("/:id", getById, async (req, res, next) => {
+router.put("/:id", [validate, getById], async (req, res, next) => {
   try {
     if (req.blog) {
       const { likes } = req.body;

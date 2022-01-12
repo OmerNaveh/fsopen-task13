@@ -3,6 +3,8 @@ const bank = [
   { msg: "internal server errors", code: 500 },
   { msg: "something went wrong!", code: 500 },
   { msg: "Not Found!", code: 404 },
+  { msg: "invalid token", code: 401 },
+  { msg: "unauthorized", code: 401 },
 ];
 
 const errorhandler = (error, req, res, next) => {
