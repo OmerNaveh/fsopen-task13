@@ -9,7 +9,7 @@ router.post("/", async (req, res, next) => {
     await User.create({ name, username });
     res.send("created!");
   } catch (error) {
-    if (error.errors) return res.send(error.errors[0].message);
+    if (error.errors) return res.status(400).send(error.errors[0].message);
     next("internal server errors");
   }
 });
@@ -30,6 +30,36 @@ router.put("/:username", async (req, res, next) => {
   try {
     await User.update({ ...req.body }, { where: { username } });
     res.send(`updated!`);
+  } catch (error) {
+    next("internal server errors");
+  }
+});
+router.get("/:id", async (req, res, next) => {
+  const { id } = req.params;
+  const where = {};
+  const { read } = req.query;
+  if (read) {
+    where.read = read;
+  }
+  if (!id) return next("missing params");
+  try {
+    const all = await User.findByPk(id, {
+      attributes: { exclude: ["id"] },
+      include: [
+        {
+          model: Blog,
+          attributes: { exclude: ["id", "userId"] },
+        },
+        {
+          model: Blog,
+          as: "reading_list",
+          through: { attributes: ["read", "id"], where },
+          attributes: { exclude: ["id", "userId"] },
+        },
+      ],
+    });
+    if (!all) return next("Not Found!");
+    res.send(JSON.stringify(all));
   } catch (error) {
     next("internal server errors");
   }

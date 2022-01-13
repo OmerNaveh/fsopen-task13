@@ -16,7 +16,7 @@ router.get("/", validate, async (req, res, next) => {
       attributes: { exclude: ["UserId"] },
       include: { model: User, attributes: { exclude: ["id"] } },
       where,
-      order: [["likes", "desc"]],
+      order: [["likes", "desc"], ["id"]],
     });
     res.send(JSON.stringify(blogs, null, 2));
   } catch (error) {
@@ -25,15 +25,16 @@ router.get("/", validate, async (req, res, next) => {
 });
 
 router.post("/", validate, async (req, res, next) => {
-  const { author, title, url } = req.body;
+  const { author, title, url, year = new Date().getFullYear() } = req.body;
   if (!author || !title || !url) {
     next("missing params");
     return;
   }
   try {
-    await Blog.create({ author, title, url, UserId: req.userId });
+    await Blog.create({ author, title, url, UserId: req.userId, year });
     res.send("created successfully");
   } catch (error) {
+    if (error.errors) return res.status(400).send(error.errors[0].message);
     next("something went wrong!");
   }
 });
